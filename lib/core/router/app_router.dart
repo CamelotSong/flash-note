@@ -1,0 +1,27 @@
+import 'package:go_router/go_router.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import '../../features/home/presentation/screens/home_screen.dart';
+import '../../features/record/presentation/screens/record_screen.dart';
+import '../../features/detail/presentation/screens/note_detail_screen.dart';
+import '../../features/search/presentation/screens/search_screen.dart';
+import '../../features/settings/presentation/screens/settings_screen.dart';
+
+part 'app_router.g.dart';
+
+@Riverpod(keepAlive: true)
+GoRouter appRouter(AppRouterRef ref) {
+  return GoRouter(
+    initialLocation: '/',
+    routes: [
+      GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
+      GoRoute(path: '/record', builder: (_, __) => const RecordScreen()),
+      GoRoute(
+        path: '/note/:id',
+        builder: (_, state) =>
+            NoteDetailScreen(noteId: int.parse(state.pathParameters['id']!)),
+      ),
+      GoRoute(path: '/search', builder: (_, __) => const SearchScreen()),
+      GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+    ],
+  );
+}
