@@ -1,6 +1,5 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/database/app_database.dart';
-import '../../../core/database/tables.dart';
 
 part 'note_providers.g.dart';
 
