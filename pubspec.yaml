@@ -24,7 +24,7 @@ dependencies:
   go_router: ^14.2.0
 
   # 语音识别（离线）
-  speech_to_text: ^6.6.1
+  speech_to_text: ^7.3.0
 
   # 录音
   record: ^6.0.0
@@ -81,4 +81,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
+
 
