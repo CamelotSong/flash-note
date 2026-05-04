@@ -103,7 +103,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
             }
           });
         },
-        listenOptions: const SpeechListenOptions(
+        listenOptions: SpeechListenOptions(
           cancelOnError: false,
           partialResults: true,
         ),
@@ -492,4 +492,5 @@ class _TypeSelector extends StatelessWidget {
     );
   }
 }
+
 
