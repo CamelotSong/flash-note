@@ -103,11 +103,13 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
             }
           });
         },
+        listenOptions: const SpeechListenOptions(
+          cancelOnError: false,
+          partialResults: true,
+        ),
         listenFor: const Duration(hours: 2),
         pauseFor: const Duration(seconds: 4),
         localeId: 'zh_CN',
-        cancelOnError: false,
-        partialResults: true,
       );
     }
 
@@ -490,3 +492,4 @@ class _TypeSelector extends StatelessWidget {
     );
   }
 }
+
