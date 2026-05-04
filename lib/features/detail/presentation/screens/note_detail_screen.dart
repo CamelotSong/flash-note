@@ -11,7 +11,7 @@ import '../../../../core/database/tables.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/ai/ai_service.dart';
 import '../../../../core/reminder/reminder_service.dart';
-import '../../application/note_providers.dart';
+import '../../../home/application/note_providers.dart';
 import '../widgets/audio_player_widget.dart';
 
 class NoteDetailScreen extends ConsumerStatefulWidget {
@@ -167,7 +167,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
             enabled: const Value(false), // 默认关闭，让用户确认
           ));
           // 保存到 DB 后 ID 是自增的，直接通过查询获取（这里简化，用 reminder ID）
-          _ = reminder;
+          // reminder inserted, ID auto-assigned
         }
       }
 

@@ -11,7 +11,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:drift/drift.dart' show Value;
 import '../../../../core/database/app_database.dart';
-import '../../../../core/database/tables.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class RecordScreen extends ConsumerStatefulWidget {
