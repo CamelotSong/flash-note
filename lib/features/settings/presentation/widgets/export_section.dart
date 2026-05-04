@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:share_plus/share_plus.dart' show Share, XFile;
 import '../../../../core/database/app_database.dart';
 import '../../../../core/theme/app_theme.dart';
 
@@ -122,11 +122,9 @@ class ExportSection extends ConsumerWidget {
           action: SnackBarAction(
             label: '分享',
             onPressed: () {
-              SharePlus.instance.share(
-                ShareParams(
-                  files: [XFile(file.path)],
-                  text: '闪记笔记导出',
-                ),
+              Share.shareXFiles(
+                [XFile(file.path)],
+                text: '闪记笔记导出',
               );
             },
           ),
