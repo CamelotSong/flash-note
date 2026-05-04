@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' show Value;
 import '../../../../core/database/app_database.dart';
-import '../../../../core/database/tables.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/ai/ai_service.dart';
 import '../../../../core/reminder/reminder_service.dart';
@@ -159,7 +158,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
       for (final hint in analysis.reminders) {
         final remindAt = reminderSvc.parseTimeHint(hint.timeHint);
         if (remindAt != null) {
-          final reminder = await db.insertReminder(RemindersCompanion.insert(
+          await db.insertReminder(RemindersCompanion.insert(
             noteId: note.id,
             title: hint.title,
             description: Value(hint.description),
@@ -588,7 +587,6 @@ class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
       remindAt: _remindAt,
       enabled: const Value(true),
     ));
-    final reminder = await db.getNoteById(widget.noteId); // 获取提醒用 db
     // 调度通知
     final r = Reminder(
       id: id, noteId: widget.noteId, title: _titleCtrl.text.trim(),
