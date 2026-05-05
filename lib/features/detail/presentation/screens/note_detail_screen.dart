@@ -477,6 +477,24 @@ class _ReminderCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final fmt = DateFormat('MM月dd日 HH:mm');
     final svc = ref.read(reminderServiceProvider);
+    final now = DateTime.now();
+    final isPast = reminder.remindAt.isBefore(now);
+    final diff = reminder.remindAt.difference(now);
+
+    String countdown = '';
+    if (!isPast && reminder.enabled) {
+      if (diff.inDays > 0) {
+        countdown = '${diff.inDays}天后';
+      } else if (diff.inHours > 0) {
+        countdown = '${diff.inHours}小时后';
+      } else if (diff.inMinutes > 0) {
+        countdown = '${diff.inMinutes}分钟后';
+      } else {
+        countdown = '即将提醒';
+      }
+    } else if (isPast && reminder.status != 'done') {
+      countdown = '已过期';
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -485,7 +503,7 @@ class _ReminderCard extends ConsumerWidget {
         color: AppTheme.cardDark,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: reminder.enabled
+          color: reminder.enabled && !isPast
               ? AppTheme.success.withValues(alpha: 0.4)
               : Colors.grey.withValues(alpha: 0.2),
           width: 1,
@@ -494,8 +512,14 @@ class _ReminderCard extends ConsumerWidget {
       child: Row(
         children: [
           Icon(
-            reminder.status == 'done' ? Icons.check_circle : Icons.alarm_outlined,
-            color: reminder.enabled ? AppTheme.success : AppTheme.textSecondary,
+            reminder.status == 'done'
+                ? Icons.check_circle
+                : isPast
+                    ? Icons.alarm_off_outlined
+                    : Icons.alarm_outlined,
+            color: reminder.enabled && !isPast
+                ? AppTheme.success
+                : AppTheme.textSecondary,
             size: 22,
           ),
           const SizedBox(width: 12),
@@ -513,8 +537,30 @@ class _ReminderCard extends ConsumerWidget {
                           : null,
                     )),
                 const SizedBox(height: 2),
-                Text(fmt.format(reminder.remindAt),
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                Row(
+                  children: [
+                    Text(fmt.format(reminder.remindAt),
+                        style: const TextStyle(
+                            fontSize: 12, color: AppTheme.textSecondary)),
+                    if (countdown.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: isPast
+                              ? Colors.red.withValues(alpha: 0.15)
+                              : AppTheme.success.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(countdown,
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: isPast ? Colors.redAccent : AppTheme.success)),
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),
