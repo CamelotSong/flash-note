@@ -148,7 +148,14 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
     if (autoAnalyze == 'true' && mounted) {
       final aiService = ref.read(aiServiceProvider);
       // 后台静默执行，不阻塞跳转
-      aiService.analyzeNote(id, content).catchError((_) {});
+      aiService.analyzeNote(content).then((analysis) async {
+        await db.updateNote(NotesCompanion(
+          id: Value(id),
+          analyzed: const Value(true),
+          summary: Value(analysis.summary),
+          tags: Value(analysis.tags.join(',')),
+        ));
+      }).catchError((_) {});
     }
 
     if (mounted) context.go('/note/$id');

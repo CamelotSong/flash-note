@@ -1,6 +1,15 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../database/app_database.dart';
+
+part 'ai_service.g.dart';
+
+@Riverpod(keepAlive: true)
+AiService aiService(AiServiceRef ref) {
+  final db = ref.watch(appDatabaseProvider);
+  return AiService(db);
+}
 
 /// 支持 OpenAI 兼容接口（OpenAI / 通义千问 / DeepSeek / 本地 Ollama 等）
 class AiService {
