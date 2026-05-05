@@ -32,6 +32,8 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
   String? _audioPath;
   Duration _duration = Duration.zero;
   Timer? _timer;
+  Timer? _amplitudeTimer;
+  final List<double> _waveform = List.filled(30, 0.1); // 声波柱高度
 
   // 语音转文字
   final _stt = SpeechToText();
@@ -67,6 +69,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
   void dispose() {
     _pulseCtrl.dispose();
     _timer?.cancel();
+    _amplitudeTimer?.cancel();
     _recorder.dispose();
     super.dispose();
   }
@@ -119,14 +122,31 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
       setState(() => _duration += const Duration(seconds: 1));
     });
 
+    // 声波振幅采样
+    _amplitudeTimer = Timer.periodic(const Duration(milliseconds: 100), (_) async {
+      try {
+        final amp = await _recorder.getAmplitude();
+        final normalized = ((amp.current + 60) / 60).clamp(0.05, 1.0);
+        setState(() {
+          _waveform.removeAt(0);
+          _waveform.add(normalized);
+        });
+      } catch (_) {}
+    });
+
     setState(() => _isRecording = true);
   }
 
   Future<void> _stopRecording() async {
     _timer?.cancel();
+    _amplitudeTimer?.cancel();
     await _recorder.stop();
     if (_sttAvailable) await _stt.stop();
-    setState(() => _isRecording = false);
+    // 停止后波形归零
+    setState(() {
+      _isRecording = false;
+      for (int i = 0; i < _waveform.length; i++) _waveform[i] = 0.1;
+    });
   }
 
   Future<void> _save() async {
@@ -277,6 +297,13 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
                       ),
                     ),
                     const SizedBox(height: 40),
+
+                    // 声波可视化
+                    if (_isRecording)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        child: _WaveformView(waveform: _waveform),
+                      ),
 
                     // 录音按钮
                     GestureDetector(
@@ -510,3 +537,39 @@ class _TypeSelector extends StatelessWidget {
 }
 
 
+
+// ── 声波可视化组件 ─────────────────────────────────────────────
+
+class _WaveformView extends StatelessWidget {
+  final List<double> waveform;
+  const _WaveformView({required this.waveform});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      width: 240,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: waveform.asMap().entries.map((e) {
+          final height = (e.value * 48).clamp(3.0, 48.0);
+          // 中间的柱更亮
+          final center = waveform.length / 2;
+          final dist = (e.key - center).abs() / center;
+          final opacity = (1.0 - dist * 0.4).clamp(0.3, 1.0);
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 80),
+            width: 4,
+            height: height,
+            margin: const EdgeInsets.symmetric(horizontal: 1.5),
+            decoration: BoxDecoration(
+              color: AppTheme.recording.withValues(alpha: opacity),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
