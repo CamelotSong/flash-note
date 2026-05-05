@@ -42,6 +42,17 @@ class AppDatabase extends _$AppDatabase {
         ..orderBy([(n) => OrderingTerm.desc(n.createdAt)]))
       .watch();
 
+  /// 各类型笔记数量：{'voice': 3, 'text': 12, ...}
+  Stream<Map<String, int>> watchNoteCountByType() {
+    return watchAllNotes().map((list) {
+      final counts = <String, int>{};
+      for (final n in list) {
+        counts[n.type] = (counts[n.type] ?? 0) + 1;
+      }
+      return counts;
+    });
+  }
+
   Future<List<Note>> searchNotes(String query) => (select(notes)
         ..where((n) =>
             n.content.contains(query) |

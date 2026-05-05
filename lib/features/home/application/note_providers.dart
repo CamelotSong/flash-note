@@ -18,6 +18,12 @@ Stream<List<Note>> allNotes(AllNotesRef ref) {
 }
 
 @riverpod
+Stream<Map<String, int>> noteCountByType(NoteCountByTypeRef ref) {
+  final db = ref.watch(appDatabaseProvider);
+  return db.watchNoteCountByType();
+}
+
+@riverpod
 Future<Note?> noteById(NoteByIdRef ref, int id) {
   final db = ref.watch(appDatabaseProvider);
   return db.getNoteById(id);

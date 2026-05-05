@@ -2,12 +2,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../../../core/ai/ai_service.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../application/note_providers.dart';
@@ -55,7 +57,7 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-// ── 类型筛选栏 ────────────────────────────────────────────────
+// ── 类型筛选栏（带数量角标）────────────────────────────────────
 
 class _TypeFilterBar extends ConsumerWidget {
   const _TypeFilterBar();
@@ -71,6 +73,10 @@ class _TypeFilterBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final current = ref.watch(noteTypeFilterProvider);
+    final countsAsync = ref.watch(noteCountByTypeProvider);
+    final counts = countsAsync.valueOrNull ?? {};
+    final totalCount = counts.values.fold(0, (a, b) => a + b);
+
     return SizedBox(
       height: 48,
       child: ListView(
@@ -78,6 +84,7 @@ class _TypeFilterBar extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         children: _filters.map((f) {
           final isSelected = f.$1 == current;
+          final count = f.$1 == null ? totalCount : (counts[f.$1] ?? 0);
           return GestureDetector(
             onTap: () => ref.read(noteTypeFilterProvider.notifier).state = f.$1,
             child: AnimatedContainer(
@@ -105,6 +112,22 @@ class _TypeFilterBar extends ConsumerWidget {
                       style: TextStyle(
                           fontSize: 12,
                           color: isSelected ? AppTheme.accent : AppTheme.textSecondary)),
+                  if (count > 0) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.accent.withValues(alpha: 0.3)
+                            : AppTheme.textSecondary.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text('$count',
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: isSelected ? AppTheme.accent : AppTheme.textSecondary)),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -123,10 +146,84 @@ class _NoteList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ListView.builder(
+    // 按日期分组
+    final groups = <String, List<Note>>{};
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    for (final n in notes) {
+      final d = DateTime(n.createdAt.year, n.createdAt.month, n.createdAt.day);
+      final String label;
+      if (d == today) {
+        label = '今天';
+      } else if (d == yesterday) {
+        label = '昨天';
+      } else if (now.difference(d).inDays < 7) {
+        label = '本周';
+      } else {
+        label = DateFormat('yyyy年MM月').format(d);
+      }
+      groups.putIfAbsent(label, () => []).add(n);
+    }
+
+    // 保持顺序：今天 > 昨天 > 本周 > 月份
+    final orderedKeys = groups.keys.toList();
+
+    final items = <Widget>[];
+    for (final key in orderedKeys) {
+      items.add(_DateGroupHeader(label: key, count: groups[key]!.length));
+      for (final note in groups[key]!) {
+        items.add(_NoteCard(note: note));
+      }
+    }
+
+    return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-      itemCount: notes.length,
-      itemBuilder: (context, i) => _NoteCard(note: notes[i]),
+      children: items,
+    );
+  }
+}
+
+// ── 日期分组头 ────────────────────────────────────────────────
+
+class _DateGroupHeader extends StatelessWidget {
+  final String label;
+  final int count;
+  const _DateGroupHeader({required this.label, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 12, 2, 6),
+      child: Row(
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textSecondary,
+                  letterSpacing: 0.5)),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            decoration: BoxDecoration(
+              color: AppTheme.textSecondary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text('$count',
+                style: const TextStyle(
+                    fontSize: 10, color: AppTheme.textSecondary)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: AppTheme.textSecondary.withValues(alpha: 0.1),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -161,6 +258,7 @@ class _NoteCard extends ConsumerWidget {
         ),
         child: GestureDetector(
           onTap: () => context.go('/note/${note.id}'),
+          onLongPress: () => _showContextMenu(context, ref),
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -235,6 +333,160 @@ class _NoteCard extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  void _showContextMenu(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.cardDark,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _NoteContextMenu(note: note),
+    );
+  }
+}
+
+// ── 长按上下文菜单 ─────────────────────────────────────────────
+
+class _NoteContextMenu extends ConsumerWidget {
+  final Note note;
+  const _NoteContextMenu({required this.note});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 拖拽把手
+            Container(
+              width: 36, height: 4,
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.textSecondary.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // 笔记标题预览
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              child: Text(
+                note.title ?? note.content,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 13, color: AppTheme.textSecondary),
+              ),
+            ),
+            const Divider(height: 16),
+            // 查看详情
+            ListTile(
+              leading: const Icon(Icons.open_in_new_outlined, color: AppTheme.accent),
+              title: const Text('查看详情'),
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/note/${note.id}');
+              },
+            ),
+            // AI 分析（未分析才显示）
+            if (!note.analyzed)
+              ListTile(
+                leading: const Icon(Icons.auto_awesome_outlined, color: AppTheme.accent),
+                title: const Text('AI 分析'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final db = ref.read(appDatabaseProvider);
+                  final aiService = ref.read(aiServiceProvider);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('AI 分析中…'), duration: Duration(seconds: 2)),
+                  );
+                  try {
+                    final analysis = await aiService.analyzeNote(note.content);
+                    await db.updateNote(NotesCompanion(
+                      id: Value(note.id),
+                      analyzed: const Value(true),
+                      summary: Value(analysis.summary),
+                      tags: Value(analysis.tags.join(',')),
+                    ));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('✅ 分析完成'), backgroundColor: AppTheme.accent),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('分析失败: $e')),
+                      );
+                    }
+                  }
+                },
+              ),
+            // 复制内容
+            ListTile(
+              leading: const Icon(Icons.copy_outlined, color: AppTheme.accent),
+              title: const Text('复制内容'),
+              onTap: () {
+                Navigator.pop(context);
+                final text = note.summary?.isNotEmpty == true
+                    ? note.summary!
+                    : note.content;
+                // 使用 Clipboard
+                _copyToClipboard(context, text);
+              },
+            ),
+            // 设置提醒
+            ListTile(
+              leading: const Icon(Icons.alarm_add_outlined, color: AppTheme.accent),
+              title: const Text('设置提醒'),
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/note/${note.id}');
+                // 进入详情页后用户可操作，或后续做独立弹层
+              },
+            ),
+            // 删除
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              title: const Text('删除', style: TextStyle(color: Colors.redAccent)),
+              onTap: () async {
+                Navigator.pop(context);
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    backgroundColor: AppTheme.cardDark,
+                    title: const Text('确认删除'),
+                    content: const Text('删除后无法恢复，确定吗？'),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('取消')),
+                      TextButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('删除',
+                              style: TextStyle(color: Colors.redAccent))),
+                    ],
+                  ),
+                );
+                if (confirmed == true && context.mounted) {
+                  final db = ref.read(appDatabaseProvider);
+                  await db.deleteNote(note.id);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _copyToClipboard(BuildContext context, String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已复制到剪贴板')),
     );
   }
 }
