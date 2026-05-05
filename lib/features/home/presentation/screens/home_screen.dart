@@ -546,6 +546,13 @@ class _QuickTextSheetState extends ConsumerState<_QuickTextSheet> {
   final _picker = ImagePicker();
   final List<String> _imagePaths = [];
   bool _saving = false;
+  int _charCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl.addListener(() => setState(() => _charCount = _ctrl.text.length));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -561,10 +568,21 @@ class _QuickTextSheetState extends ConsumerState<_QuickTextSheet> {
               const Text('快速记录',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const Spacer(),
-              TextButton(
-                onPressed: _saving ? null : _save,
-                child: const Text('保存', style: TextStyle(color: AppTheme.accent)),
-              ),
+              // 字数统计
+              if (_charCount > 0)
+                Text('$_charCount 字',
+                    style: const TextStyle(
+                        fontSize: 12, color: AppTheme.textSecondary)),
+              const SizedBox(width: 8),
+              _saving
+                  ? const SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : TextButton(
+                      onPressed: _save,
+                      child: const Text('保存',
+                          style: TextStyle(color: AppTheme.accent)),
+                    ),
             ],
           ),
           const SizedBox(height: 12),
@@ -670,6 +688,8 @@ class _QuickTextSheetState extends ConsumerState<_QuickTextSheet> {
       content: content,
       imagePaths: Value(imagePathsJson),
     ));
+    // 触觉反馈
+    HapticFeedback.lightImpact();
     if (mounted) Navigator.pop(context);
   }
 
