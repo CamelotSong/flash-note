@@ -3,10 +3,17 @@ import '../../../core/database/app_database.dart';
 
 part 'note_providers.g.dart';
 
+// null = 全部，其他值 = 按类型筛选
+final noteTypeFilterProvider = StateProvider<String?>((ref) => null);
+
 @riverpod
 Stream<List<Note>> allNotes(AllNotesRef ref) {
   final db = ref.watch(appDatabaseProvider);
-  return db.watchAllNotes();
+  final filter = ref.watch(noteTypeFilterProvider);
+  if (filter == null) {
+    return db.watchAllNotes();
+  }
+  return db.watchNotesByType(filter);
 }
 
 @riverpod

@@ -38,6 +38,10 @@ class HomeScreen extends ConsumerWidget {
             onPressed: () => context.go('/settings'),
           ),
         ],
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(48),
+          child: _TypeFilterBar(),
+        ),
       ),
       body: notesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -47,6 +51,66 @@ class HomeScreen extends ConsumerWidget {
             : _NoteList(notes: notes),
       ),
       floatingActionButton: _RecordFab(),
+    );
+  }
+}
+
+// ── 类型筛选栏 ────────────────────────────────────────────────
+
+class _TypeFilterBar extends ConsumerWidget {
+  const _TypeFilterBar();
+
+  static const _filters = [
+    (null, '全部', Icons.all_inclusive_outlined),
+    ('voice', '语音', Icons.mic_outlined),
+    ('meeting', '会议', Icons.groups_outlined),
+    ('conversation', '对话', Icons.chat_outlined),
+    ('text', '文字', Icons.edit_outlined),
+  ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(noteTypeFilterProvider);
+    return SizedBox(
+      height: 48,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        children: _filters.map((f) {
+          final isSelected = f.$1 == current;
+          return GestureDetector(
+            onTap: () => ref.read(noteTypeFilterProvider.notifier).state = f.$1,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppTheme.accent.withValues(alpha: 0.2)
+                    : AppTheme.cardDark,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isSelected ? AppTheme.accent : Colors.transparent,
+                  width: 1.2,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(f.$3,
+                      size: 14,
+                      color: isSelected ? AppTheme.accent : AppTheme.textSecondary),
+                  const SizedBox(width: 4),
+                  Text(f.$2,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: isSelected ? AppTheme.accent : AppTheme.textSecondary)),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 }

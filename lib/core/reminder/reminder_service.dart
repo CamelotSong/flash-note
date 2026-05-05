@@ -31,7 +31,40 @@ class ReminderService {
   }
 
   void _onNotificationTap(NotificationResponse response) {
-    // 可在此处理通知点击跳转
+    // action id 'snooze' → 10分钟后重新提醒
+    if (response.actionId == 'snooze') {
+      _snoozeReminder(response.id!);
+    }
+  }
+
+  Future<void> _snoozeReminder(int notificationId) async {
+    final snoozeTime = tz.TZDateTime.now(tz.local).add(const Duration(minutes: 10));
+    // 取出原提醒标题（用通知 id 查 db）
+    final reminder = await _db.getReminderById(notificationId);
+    final title = reminder?.title ?? '闪记提醒';
+
+    await _plugin.zonedSchedule(
+      notificationId,
+      title,
+      '稍后提醒（10分钟）',
+      snoozeTime,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          'flash_note_reminders',
+          '闪记提醒',
+          channelDescription: '笔记相关提醒通知',
+          importance: Importance.high,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+          actions: [
+            AndroidNotificationAction('snooze', '稍后提醒', showsUserInterface: false),
+          ],
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+    );
   }
 
   Future<void> scheduleReminder(Reminder reminder) async {
@@ -44,7 +77,7 @@ class ReminderService {
       reminder.title,
       reminder.description ?? '',
       scheduledTime,
-      const NotificationDetails(
+      NotificationDetails(
         android: AndroidNotificationDetails(
           'flash_note_reminders',
           '闪记提醒',
@@ -52,6 +85,9 @@ class ReminderService {
           importance: Importance.high,
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',
+          actions: [
+            AndroidNotificationAction('snooze', '稍后提醒', showsUserInterface: false),
+          ],
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,

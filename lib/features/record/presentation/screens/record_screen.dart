@@ -12,6 +12,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:drift/drift.dart' show Value;
 import '../../../../core/database/app_database.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/ai/ai_service.dart';
 
 class RecordScreen extends ConsumerStatefulWidget {
   const RecordScreen({super.key});
@@ -141,6 +142,14 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
       transcript: Value(transcript.isNotEmpty ? transcript : null),
       imagePaths: Value(imagePathsJson),
     ));
+
+    // 自动 AI 分析（如果设置开启）
+    final autoAnalyze = await db.getSetting('auto_analyze_recording');
+    if (autoAnalyze == 'true' && mounted) {
+      final aiService = ref.read(aiServiceProvider);
+      // 后台静默执行，不阻塞跳转
+      aiService.analyzeNote(id, content).catchError((_) {});
+    }
 
     if (mounted) context.go('/note/$id');
   }

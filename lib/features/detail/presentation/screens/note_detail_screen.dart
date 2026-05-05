@@ -321,12 +321,12 @@ class _ContentTab extends StatelessWidget {
 
 // ── AI 分析 Tab ───────────────────────────────────────────────
 
-class _AiTab extends StatelessWidget {
+class _AiTab extends ConsumerWidget {
   final Note note;
   const _AiTab({required this.note});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (!note.analyzed || note.summary == null) {
       return Center(
         child: Column(
@@ -343,6 +343,9 @@ class _AiTab extends StatelessWidget {
         ),
       );
     }
+
+    // 解析 action items（存在 summary 的 JSON 部分，或单独字段）
+    final actionItems = _parseActionItems(note.summary!);
 
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -380,8 +383,33 @@ class _AiTab extends StatelessWidget {
             ).toList(),
           ),
         ],
+        // ── 待办事项 ──
+        if (actionItems.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          const _SectionHeader(icon: Icons.checklist_outlined, label: '待办事项'),
+          const SizedBox(height: 8),
+          ...actionItems.map((item) => _ActionItemCard(item: item, noteId: note.id)),
+        ],
       ],
     );
+  }
+
+  List<String> _parseActionItems(String summary) {
+    // 从 markdown 里提取 "- [ ]" 或 "**待办**" 后的条目
+    final lines = summary.split('\n');
+    final items = <String>[];
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (trimmed.startsWith('- [ ]') || trimmed.startsWith('* [ ]')) {
+        items.add(trimmed.replaceFirst(RegExp(r'^[-*]\s*\[\s*\]\s*'), '').trim());
+      } else if (trimmed.startsWith('- ') && 
+                 (summary.contains('待办') || summary.contains('action') || summary.contains('Action'))) {
+        // 在待办区块下的列表项
+        final content = trimmed.substring(2).trim();
+        if (content.isNotEmpty && content.length < 100) items.add(content);
+      }
+    }
+    return items.take(10).toList();
   }
 }
 
@@ -617,5 +645,93 @@ class _SectionHeader extends StatelessWidget {
       Text(label, style: const TextStyle(
           fontSize: 13, color: AppTheme.accent, fontWeight: FontWeight.w600)),
     ]);
+  }
+}
+
+// ── 待办事项卡片（支持一键转提醒）────────────────────────────
+
+class _ActionItemCard extends ConsumerWidget {
+  final String item;
+  final int noteId;
+  const _ActionItemCard({required this.item, required this.noteId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.cardDark,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.radio_button_unchecked, size: 16, color: AppTheme.textSecondary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(item,
+                style: const TextStyle(fontSize: 13, color: Colors.white, height: 1.4)),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: () => _setReminder(context, ref),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: Tooltip(
+                message: '设为提醒',
+                child: const Icon(Icons.alarm_add_outlined, size: 18, color: AppTheme.accent),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _setReminder(BuildContext context, WidgetRef ref) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now.add(const Duration(hours: 1)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      helpText: '选择提醒日期',
+    );
+    if (picked == null || !context.mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(now.add(const Duration(hours: 1))),
+      helpText: '选择提醒时间',
+    );
+    if (time == null || !context.mounted) return;
+
+    final scheduledAt = DateTime(
+        picked.year, picked.month, picked.day, time.hour, time.minute);
+
+    final db = ref.read(appDatabaseProvider);
+    final reminderService = ref.read(reminderServiceProvider);
+
+    final reminderId = await db.insertReminder(RemindersCompanion.insert(
+      noteId: noteId,
+      title: item,
+      remindAt: scheduledAt,
+    ));
+
+    // 查回 Reminder 对象再调度
+    final reminder = await db.getReminderById(reminderId);
+    if (reminder != null) {
+      await reminderService.scheduleReminder(reminder);
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('已设置提醒：${DateFormat('MM-dd HH:mm').format(scheduledAt)}'),
+          backgroundColor: AppTheme.accent,
+        ),
+      );
+    }
   }
 }

@@ -19,6 +19,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _loaded = false;
   bool _saving = false;
   bool _showKey = false;
+  bool _autoAnalyzeRecording = false;
 
   // 预设接入点
   static const _presets = [
@@ -39,7 +40,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _baseUrlCtrl.text = await db.getSetting('ai_base_url') ?? 'https://api.openai.com/v1';
     _apiKeyCtrl.text = await db.getSetting('ai_api_key') ?? '';
     _modelCtrl.text = await db.getSetting('ai_model') ?? 'gpt-4o-mini';
-    setState(() => _loaded = true);
+    final autoAnalyze = await db.getSetting('auto_analyze_recording');
+    setState(() {
+      _autoAnalyzeRecording = autoAnalyze == 'true';
+      _loaded = true;
+    });
   }
 
   Future<void> _save() async {
@@ -48,6 +53,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     await db.setSetting('ai_base_url', _baseUrlCtrl.text.trim());
     await db.setSetting('ai_api_key', _apiKeyCtrl.text.trim());
     await db.setSetting('ai_model', _modelCtrl.text.trim());
+    await db.setSetting('auto_analyze_recording', _autoAnalyzeRecording ? 'true' : 'false');
     setState(() => _saving = false);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -135,6 +141,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       labelText: '模型名称',
                       hintText: 'gpt-4o-mini',
                       border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 录音后自动分析开关
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardDark,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: SwitchListTile(
+                      value: _autoAnalyzeRecording,
+                      onChanged: (v) => setState(() => _autoAnalyzeRecording = v),
+                      activeColor: AppTheme.accent,
+                      title: const Text('录音完成后自动分析',
+                          style: TextStyle(fontSize: 14, color: Colors.white)),
+                      subtitle: const Text('保存录音后在后台静默生成摘要和标签',
+                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                     ),
                   ),
                   const SizedBox(height: 32),

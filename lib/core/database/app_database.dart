@@ -37,6 +37,11 @@ class AppDatabase extends _$AppDatabase {
   Stream<List<Note>> watchAllNotes() =>
       (select(notes)..orderBy([(n) => OrderingTerm.desc(n.createdAt)])).watch();
 
+  Stream<List<Note>> watchNotesByType(String type) => (select(notes)
+        ..where((n) => n.type.equals(type))
+        ..orderBy([(n) => OrderingTerm.desc(n.createdAt)]))
+      .watch();
+
   Future<List<Note>> searchNotes(String query) => (select(notes)
         ..where((n) =>
             n.content.contains(query) |
@@ -71,6 +76,9 @@ class AppDatabase extends _$AppDatabase {
 
   Future<int> insertReminder(RemindersCompanion reminder) =>
       into(reminders).insert(reminder);
+
+  Future<Reminder?> getReminderById(int id) =>
+      (select(reminders)..where((r) => r.id.equals(id))).getSingleOrNull();
 
   Future<void> updateReminder(RemindersCompanion reminder) =>
       (update(reminders)..where((r) => r.id.equals(reminder.id.value)))
