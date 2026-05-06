@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">闪记</string>
+    <string name="shortcut_record_short">快速录音</string>
+    <string name="shortcut_record_long">快速开始录音</string>
+</resources>

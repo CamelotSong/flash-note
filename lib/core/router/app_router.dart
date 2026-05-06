@@ -12,6 +12,12 @@ part 'app_router.g.dart';
 GoRouter appRouter(AppRouterRef ref) {
   return GoRouter(
     initialLocation: '/',
+    redirect: (context, state) {
+      if (state.uri.toString().contains('quick_record')) {
+        return '/record';
+      }
+      return null;
+    },
     routes: [
       GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
       GoRoute(path: '/record', builder: (_, __) => const RecordScreen()),
