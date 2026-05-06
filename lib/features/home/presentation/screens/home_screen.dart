@@ -14,12 +14,16 @@ import '../../../../core/database/app_database.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../application/note_providers.dart';
 
+// Timeline view toggle provider
+final isTimelineViewProvider = StateProvider<bool>((ref) => false);
+
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notesAsync = ref.watch(allNotesProvider);
+    final isTimeline = ref.watch(isTimelineViewProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -31,6 +35,25 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
         actions: [
+          IconButton(
+            icon: Icon(isTimeline
+                ? Icons.view_list
+                : Icons.view_timeline_outlined),
+            tooltip: isTimeline ? '列表视图' : '时间线',
+            onPressed: () => ref
+                .read(isTimelineViewProvider.notifier)
+                .state = !isTimeline,
+          ),
+          IconButton(
+            icon: const Icon(Icons.bar_chart_outlined),
+            tooltip: '统计',
+            onPressed: () => context.go('/stats'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.smart_toy_outlined),
+            tooltip: 'AI 问答',
+            onPressed: () => context.go('/ai-chat'),
+          ),
           IconButton(
             icon: const Icon(Icons.search_outlined),
             onPressed: () => context.go('/search'),
@@ -50,7 +73,9 @@ class HomeScreen extends ConsumerWidget {
         error: (e, _) => Center(child: Text('加载失败: $e')),
         data: (notes) => notes.isEmpty
             ? _EmptyState(onAdd: () => context.go('/record'))
-            : _NoteList(notes: notes),
+            : isTimeline
+                ? _TimelineList(notes: notes)
+                : _NoteList(notes: notes),
       ),
       floatingActionButton: _RecordFab(),
     );
@@ -136,6 +161,125 @@ class _TypeFilterBar extends ConsumerWidget {
       ),
     );
   }
+}
+
+// ── 时间线列表 ────────────────────────────────────────────────
+
+class _TimelineList extends StatelessWidget {
+  final List<Note> notes;
+  const _TimelineList({required this.notes});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      itemCount: notes.length,
+      itemBuilder: (_, i) => _TimelineNoteItem(note: notes[i]),
+    );
+  }
+}
+
+class _TimelineNoteItem extends StatelessWidget {
+  final Note note;
+  const _TimelineNoteItem({required this.note});
+
+  @override
+  Widget build(BuildContext context) {
+    final typeColor = AppTheme.typeColor(note.type);
+    final fmt = DateFormat('MM-dd HH:mm');
+
+    return InkWell(
+      onTap: () => context.go('/note/${note.id}'),
+      borderRadius: BorderRadius.circular(8),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Left timeline rail
+            SizedBox(
+              width: 24,
+              child: Column(
+                children: [
+                  // Top connecting line
+                  Expanded(
+                    child: Center(
+                      child: Container(
+                        width: 2,
+                        color: AppTheme.accent.withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ),
+                  // Node dot
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: typeColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  // Bottom connecting line
+                  Expanded(
+                    child: Center(
+                      child: Container(
+                        width: 2,
+                        color: AppTheme.accent.withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      fmt.format(note.createdAt),
+                      style: const TextStyle(
+                          fontSize: 11, color: AppTheme.textSecondary),
+                    ),
+                    const SizedBox(height: 4),
+                    if (note.title?.isNotEmpty == true)
+                      Text(
+                        note.title!,
+                        style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    Text(
+                      note.summary?.isNotEmpty == true
+                          ? note.summary!
+                          : note.content,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                          height: 1.4),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── 情绪颜色 ──────────────────────────────────────────────────
+Color _sentimentColor(String? s) {
+  if (s == 'positive') return Colors.green;
+  if (s == 'negative') return Colors.redAccent;
+  return Colors.grey;
 }
 
 // ── 笔记列表 ──────────────────────────────────────────────────
@@ -259,70 +403,72 @@ class _NoteCard extends ConsumerWidget {
         child: GestureDetector(
           onTap: () => context.go('/note/${note.id}'),
           onLongPress: () => _showContextMenu(context, ref),
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppTheme.cardDark,
-              borderRadius: BorderRadius.circular(14),
-              border: Border(
-                left: BorderSide(color: typeColor, width: 3),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 类型标签 + 时间
-                Row(
+          child: Stack(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.cardDark,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border(
+                    left: BorderSide(color: typeColor, width: 3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(AppTheme.typeIcon(note.type), size: 14, color: typeColor),
-                    const SizedBox(width: 4),
-                    Text(AppTheme.typeLabel(note.type),
-                        style: TextStyle(fontSize: 12, color: typeColor)),
-                    const Spacer(),
-                    Text(fmt.format(note.createdAt),
-                        style: const TextStyle(
-                            fontSize: 11, color: AppTheme.textSecondary)),
-                    if (note.analyzed) ...[
-                      const SizedBox(width: 6),
-                      const Icon(Icons.auto_awesome, size: 12, color: AppTheme.accent),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // 标题或摘要
-                if (note.title?.isNotEmpty == true)
-                  Text(note.title!,
+                    // 类型标签 + 时间
+                    Row(
+                      children: [
+                        Icon(AppTheme.typeIcon(note.type), size: 14, color: typeColor),
+                        const SizedBox(width: 4),
+                        Text(AppTheme.typeLabel(note.type),
+                            style: TextStyle(fontSize: 12, color: typeColor)),
+                        const Spacer(),
+                        Text(fmt.format(note.createdAt),
+                            style: const TextStyle(
+                                fontSize: 11, color: AppTheme.textSecondary)),
+                        if (note.analyzed) ...[
+                          const SizedBox(width: 6),
+                          const Icon(Icons.auto_awesome, size: 12, color: AppTheme.accent),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // 标题或摘要
+                    if (note.title?.isNotEmpty == true)
+                      Text(note.title!,
+                          style: const TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 4),
+                    // 内容预览
+                    Text(
+                      note.summary?.isNotEmpty == true ? note.summary! : note.content,
                       style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 4),
-                // 内容预览
-                Text(
-                  note.summary?.isNotEmpty == true ? note.summary! : note.content,
-                  style: const TextStyle(
-                      fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                // 标签 + AI 待办角标
-                if (note.tags?.isNotEmpty == true || (note.analyzed && _countTodos(note.summary) > 0)) ...[
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: [
-                      if (note.tags?.isNotEmpty == true)
-                        ...note.tags!
-                            .split(',')
-                            .where((t) => t.isNotEmpty)
-                            .take(4)
-                            .map((tag) => Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.accent.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(6),
+                          fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    // 标签 + AI 待办角标
+                    if (note.tags?.isNotEmpty == true || (note.analyzed && _countTodos(note.summary) > 0)) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          if (note.tags?.isNotEmpty == true)
+                            ...note.tags!
+                                .split(',')
+                                .where((t) => t.isNotEmpty)
+                                .take(4)
+                                .map((tag) => Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.accent.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text('#$tag',
                                       style: const TextStyle(
@@ -352,9 +498,25 @@ class _NoteCard extends ConsumerWidget {
               ],
             ),
           ),
+          // 情绪标注圆点
+          if (note.analyzed && note.sentiment != null)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: _sentimentColor(note.sentiment),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   void _showContextMenu(BuildContext context, WidgetRef ref) {

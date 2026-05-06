@@ -62,6 +62,9 @@ dependencies:
   # 分享
   share_plus: ^10.1.2
 
+  # URL 启动（Feishu/外部 App）
+  url_launcher: ^6.3.0
+
   # UI 组件
   flutter_slidable: ^3.1.0
   lottie: ^3.1.2

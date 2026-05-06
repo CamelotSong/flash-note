@@ -20,6 +20,8 @@ class Notes extends Table {
   BoolColumn get analyzed => boolean().withDefault(const Constant(false))();
   // 图片路径列表（JSON 数组字符串，如 '["path1","path2"]'）
   TextColumn get imagePaths => text().nullable()();
+  // 情绪：'positive' | 'negative' | 'neutral' | null
+  TextColumn get sentiment => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 }

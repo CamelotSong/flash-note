@@ -94,6 +94,32 @@ $content
       },
     ]);
   }
+
+  /// 基于所有笔记内容回答用户问题（全局 AI 问答）
+  Future<String> askAboutAllNotes(
+      String question, List<Note> notes) async {
+    final contextParts = notes.take(20).map((n) {
+      final title = n.title?.isNotEmpty == true ? '【${n.title}】' : '';
+      final summary =
+          n.summary?.isNotEmpty == true ? n.summary! : n.content.substring(0, n.content.length.clamp(0, 200));
+      final tags = n.tags?.isNotEmpty == true ? ' 标签:${n.tags}' : '';
+      return '- $title${summary}$tags（${n.type}）';
+    }).join('\n');
+
+    final systemPrompt = '''
+你是用户的私人智能助理。以下是用户的笔记摘要（最多20条）：
+
+$contextParts
+
+请根据用户的笔记内容回答他的问题。如果笔记中没有相关信息，诚实告知。
+回答要简洁，用中文。
+''';
+
+    return chat([
+      {'role': 'system', 'content': systemPrompt},
+      {'role': 'user', 'content': question},
+    ]);
+  }
 }
 
 class NoteAnalysis {

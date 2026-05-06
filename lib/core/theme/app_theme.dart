@@ -70,6 +70,52 @@ class AppTheme {
         ),
       );
 
+  static ThemeData get lightTheme => ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.light,
+        colorScheme: ColorScheme.light(
+          primary: accent,
+          secondary: success,
+          surface: const Color(0xFFF5F7FA),
+          onSurface: const Color(0xFF1A2B4A),
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF0F4F8),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFF0F4F8),
+          foregroundColor: Color(0xFF1A2B4A),
+          elevation: 0,
+          centerTitle: false,
+          titleTextStyle: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1A2B4A),
+          ),
+        ),
+        cardTheme: CardTheme(
+          color: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: accent,
+          foregroundColor: Colors.white,
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          hintStyle: const TextStyle(color: Color(0xFF8899AA)),
+        ),
+        chipTheme: ChipThemeData(
+          backgroundColor: const Color(0xFFF0F4F8),
+          labelStyle: const TextStyle(fontSize: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+
   static Color typeColor(String type) {
     switch (type) {
       case 'voice': return typeVoice;

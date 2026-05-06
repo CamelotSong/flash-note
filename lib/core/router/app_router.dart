@@ -5,6 +5,8 @@ import '../../features/record/presentation/screens/record_screen.dart';
 import '../../features/detail/presentation/screens/note_detail_screen.dart';
 import '../../features/search/presentation/screens/search_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
+import '../../features/stats/presentation/screens/stats_screen.dart';
+import '../../features/ai_chat/presentation/screens/ai_chat_screen.dart';
 
 part 'app_router.g.dart';
 
@@ -28,6 +30,8 @@ GoRouter appRouter(AppRouterRef ref) {
       ),
       GoRoute(path: '/search', builder: (_, __) => const SearchScreen()),
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+      GoRoute(path: '/stats', builder: (_, __) => const StatsScreen()),
+      GoRoute(path: '/ai-chat', builder: (_, __) => const AiChatScreen()),
     ],
   );
 }

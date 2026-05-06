@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_provider.dart';
 import '../widgets/export_section.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -85,6 +86,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ? ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
+                  // 外观
+                  const _SectionTitle(title: '🎨 外观'),
+                  const SizedBox(height: 12),
+                  _ThemeSwitcher(),
+                  const SizedBox(height: 24),
+
                   // AI 配置
                   const _SectionTitle(title: '🤖 AI 配置'),
                   const SizedBox(height: 6),
@@ -186,6 +193,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _apiKeyCtrl.dispose();
     _modelCtrl.dispose();
     super.dispose();
+  }
+}
+
+class _ThemeSwitcher extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(themeMode_Provider);
+    final db = ref.read(appDatabaseProvider);
+
+    String modeStr = 'dark';
+    if (mode == ThemeMode.light) modeStr = 'light';
+    if (mode == ThemeMode.system) modeStr = 'system';
+
+    return SegmentedButton<String>(
+      segments: const [
+        ButtonSegment(
+            value: 'dark',
+            icon: Icon(Icons.dark_mode_outlined),
+            label: Text('深色')),
+        ButtonSegment(
+            value: 'light',
+            icon: Icon(Icons.light_mode_outlined),
+            label: Text('浅色')),
+        ButtonSegment(
+            value: 'system',
+            icon: Icon(Icons.brightness_auto_outlined),
+            label: Text('跟随系统')),
+      ],
+      selected: {modeStr},
+      onSelectionChanged: (val) =>
+          ref.read(themeMode_Provider.notifier).setMode(db, val.first),
+    );
   }
 }
 

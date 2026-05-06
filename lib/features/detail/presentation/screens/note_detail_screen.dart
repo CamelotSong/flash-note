@@ -6,8 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart' show Share, XFile;
+import 'package:url_launcher/url_launcher.dart';
 import 'package:drift/drift.dart' show Value;
+import 'package:uuid/uuid.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/ai/ai_service.dart';
@@ -158,6 +161,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
         summary: Value(analysis.summary),
         tags: Value(analysis.tags.join(',')),
         analyzed: const Value(true),
+        sentiment: Value(analysis.sentiment.isEmpty ? null : analysis.sentiment),
         updatedAt: Value(DateTime.now()),
       ));
 
@@ -235,26 +239,9 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
               leading: const Icon(Icons.share_outlined, color: AppTheme.accent),
               title: const Text('分享为文本'),
               onTap: () {
-                final buf = StringBuffer();
-                final fmt = DateFormat('yyyy-MM-dd HH:mm');
-                buf.writeln('[${_noteTypeLabel(note.type)}] ${fmt.format(note.createdAt)}');
-                buf.writeln();
-                if (note.summary?.isNotEmpty == true) {
-                  buf.writeln(note.summary!);
-                } else {
-                  buf.writeln(note.content);
-                }
-                if (note.tags?.isNotEmpty == true) {
-                  buf.writeln();
-                  final tags = note.tags!
-                      .split(',')
-                      .where((t) => t.isNotEmpty)
-                      .map((t) => '#$t')
-                      .join(' ');
-                  buf.writeln(tags);
-                }
+                final text = _formatNoteForShare(note);
                 Navigator.pop(context);
-                Share.share(buf.toString());
+                Share.share(text);
               },
             ),
             if (note.audioPath != null)
@@ -266,6 +253,27 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                   Share.shareXFiles([XFile(note.audioPath!)]);
                 },
               ),
+            ListTile(
+              leading: const Icon(Icons.send_outlined, color: Color(0xFF2B5DFF)),
+              title: const Text('发送到飞书'),
+              subtitle: const Text('复制文字后自动跳转飞书',
+                  style: TextStyle(fontSize: 11)),
+              onTap: () async {
+                final text = _formatNoteForShare(note);
+                await Clipboard.setData(ClipboardData(text: text));
+                final uri = Uri.parse('feishu://');
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri);
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('内容已复制，请在飞书中粘贴')),
+                    );
+                  }
+                }
+                if (context.mounted) Navigator.pop(context);
+              },
+            ),
             const SizedBox(height: 8),
           ],
         ),
@@ -280,6 +288,29 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
       case 'conversation': return '对话';
       default: return '文字';
     }
+  }
+
+  /// 格式化笔记文本（用于分享）
+  static String _formatNoteForShare(Note note) {
+    final buf = StringBuffer();
+    final fmt = DateFormat('yyyy-MM-dd HH:mm');
+    buf.writeln('[${_noteTypeLabel(note.type)}] ${fmt.format(note.createdAt)}');
+    buf.writeln();
+    if (note.summary?.isNotEmpty == true) {
+      buf.writeln(note.summary!);
+    } else {
+      buf.writeln(note.content);
+    }
+    if (note.tags?.isNotEmpty == true) {
+      buf.writeln();
+      final tags = note.tags!
+          .split(',')
+          .where((t) => t.isNotEmpty)
+          .map((t) => '#$t')
+          .join(' ');
+      buf.writeln(tags);
+    }
+    return buf.toString().trim();
   }
 }
 
@@ -671,6 +702,13 @@ class _ReminderCard extends ConsumerWidget {
             activeColor: AppTheme.success,
             onChanged: (_) => svc.toggleReminder(reminder),
           ),
+          if (reminder.enabled)
+            IconButton(
+              icon: const Icon(Icons.event_outlined, size: 20),
+              color: AppTheme.textSecondary,
+              tooltip: '导出到日历',
+              onPressed: () => _exportToCalendar(context, reminder),
+            ),
         ],
       ),
     );
@@ -682,6 +720,42 @@ class _ReminderCard extends ConsumerWidget {
       case 'weekly': return '每周';
       case 'monthly': return '每月';
       default: return '';
+    }
+  }
+
+  Future<void> _exportToCalendar(BuildContext context, Reminder r) async {
+    try {
+      final uid = const Uuid().v4();
+      final dtFmt = DateFormat("yyyyMMdd'T'HHmmss'Z'");
+      final start = dtFmt.format(r.remindAt.toUtc());
+      final end = dtFmt.format(r.remindAt.toUtc().add(const Duration(hours: 1)));
+
+      final ics = '''BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//FlashNote//FlashNote//ZH
+BEGIN:VEVENT
+UID:$uid
+DTSTART:$start
+DTEND:$end
+SUMMARY:${r.title}
+DESCRIPTION:${r.description ?? ''}
+END:VEVENT
+END:VCALENDAR''';
+
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/reminder_${r.id}.ics');
+      await file.writeAsString(ics);
+
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'text/calendar')],
+        subject: r.title,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('导出失败: $e')),
+        );
+      }
     }
   }
 }
