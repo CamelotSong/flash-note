@@ -561,6 +561,13 @@ class _ReminderCard extends ConsumerWidget {
                     ],
                   ],
                 ),
+                if (reminder.repeat != 'none') ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '🔄 ${_repeatLabel(reminder.repeat)}',
+                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                ],
               ],
             ),
           ),
@@ -572,6 +579,15 @@ class _ReminderCard extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  static String _repeatLabel(String repeat) {
+    switch (repeat) {
+      case 'daily': return '每天';
+      case 'weekly': return '每周';
+      case 'monthly': return '每月';
+      default: return '';
+    }
   }
 }
 
@@ -586,6 +602,7 @@ class _AddReminderSheet extends ConsumerStatefulWidget {
 class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
   final _titleCtrl = TextEditingController();
   DateTime _remindAt = DateTime.now().add(const Duration(hours: 1));
+  String _repeat = 'none';
 
   @override
   Widget build(BuildContext context) {
@@ -634,6 +651,28 @@ class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
                   DateTime(date.year, date.month, date.day, time.hour, time.minute));
             },
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Icon(Icons.repeat, size: 18, color: AppTheme.textSecondary),
+              const SizedBox(width: 8),
+              const Text('重复', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
+              const Spacer(),
+              DropdownButton<String>(
+                value: _repeat,
+                dropdownColor: AppTheme.cardDark,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                underline: const SizedBox(),
+                items: const [
+                  DropdownMenuItem(value: 'none', child: Text('不重复')),
+                  DropdownMenuItem(value: 'daily', child: Text('每天')),
+                  DropdownMenuItem(value: 'weekly', child: Text('每周')),
+                  DropdownMenuItem(value: 'monthly', child: Text('每月')),
+                ],
+                onChanged: (v) => setState(() => _repeat = v ?? 'none'),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -660,12 +699,14 @@ class _AddReminderSheetState extends ConsumerState<_AddReminderSheet> {
       title: _titleCtrl.text.trim(),
       remindAt: _remindAt,
       enabled: const Value(true),
+      repeat: Value(_repeat),
     ));
     // 调度通知
     final r = Reminder(
       id: id, noteId: widget.noteId, title: _titleCtrl.text.trim(),
       description: null, remindAt: _remindAt,
       status: 'pending', enabled: true, createdAt: DateTime.now(),
+      repeat: _repeat,
     );
     await svc.scheduleReminder(r);
     if (mounted) Navigator.pop(context);

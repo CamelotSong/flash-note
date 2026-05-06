@@ -36,6 +36,8 @@ class Reminders extends Table {
   // status: 'pending' | 'done' | 'dismissed'
   TextColumn get status => text().withDefault(const Constant('pending'))();
   BoolColumn get enabled => boolean().withDefault(const Constant(true))();
+  // repeat: 'none' | 'daily' | 'weekly' | 'monthly'
+  TextColumn get repeat => text().withDefault(const Constant('none'))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 

@@ -72,6 +72,16 @@ class ReminderService {
     final scheduledTime = tz.TZDateTime.from(reminder.remindAt, tz.local);
     if (scheduledTime.isBefore(tz.TZDateTime.now(tz.local))) return;
 
+    final repeat = reminder.repeat;
+    DateTimeComponents? matchComponents;
+    if (repeat == 'daily') {
+      matchComponents = DateTimeComponents.time;
+    } else if (repeat == 'weekly') {
+      matchComponents = DateTimeComponents.dayOfWeekAndTime;
+    } else if (repeat == 'monthly') {
+      matchComponents = DateTimeComponents.dayOfMonthAndTime;
+    }
+
     await _plugin.zonedSchedule(
       reminder.id,
       reminder.title,
@@ -93,6 +103,7 @@ class ReminderService {
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: matchComponents,
     );
   }
 

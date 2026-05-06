@@ -305,27 +305,48 @@ class _NoteCard extends ConsumerWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                // 标签
-                if (note.tags?.isNotEmpty == true) ...[
+                // 标签 + AI 待办角标
+                if (note.tags?.isNotEmpty == true || (note.analyzed && _countTodos(note.summary) > 0)) ...[
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 6,
-                    children: note.tags!
-                        .split(',')
-                        .where((t) => t.isNotEmpty)
-                        .take(4)
-                        .map((tag) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppTheme.accent.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text('#$tag',
-                                  style: const TextStyle(
-                                      fontSize: 11, color: AppTheme.accent)),
-                            ))
-                        .toList(),
+                    runSpacing: 4,
+                    children: [
+                      if (note.tags?.isNotEmpty == true)
+                        ...note.tags!
+                            .split(',')
+                            .where((t) => t.isNotEmpty)
+                            .take(4)
+                            .map((tag) => Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.accent.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text('#$tag',
+                                      style: const TextStyle(
+                                          fontSize: 11, color: AppTheme.accent)),
+                                )),
+                      if (note.analyzed && _countTodos(note.summary) > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.orange.withValues(alpha: 0.4), width: 1),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.checklist_outlined, size: 14, color: Colors.orange),
+                              const SizedBox(width: 3),
+                              Text('${_countTodos(note.summary)}项待办',
+                                  style: const TextStyle(fontSize: 11, color: Colors.orange)),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ],
@@ -344,6 +365,18 @@ class _NoteCard extends ConsumerWidget {
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _NoteContextMenu(note: note),
     );
+  }
+
+  static int _countTodos(String? summary) {
+    if (summary == null || summary.isEmpty) return 0;
+    int count = 0;
+    for (final line in summary.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.startsWith('- [ ]') || trimmed.startsWith('* [ ]')) {
+        count++;
+      }
+    }
+    return count;
   }
 }
 
