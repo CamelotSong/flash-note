@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart' show Share, XFile;
 import 'package:drift/drift.dart' show Value;
 import '../../../../core/database/app_database.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -83,6 +85,12 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                 style: TextStyle(color: typeColor, fontSize: 15)),
           ]),
           actions: [
+            // 分享按钮（在 AI 分析按钮左侧）
+            IconButton(
+              icon: const Icon(Icons.ios_share, size: 20),
+              tooltip: '分享',
+              onPressed: () => _showShareSheet(context, note),
+            ),
             if (!note.analyzed && !_analyzing)
               TextButton.icon(
                 icon: const Icon(Icons.auto_awesome, size: 16),
@@ -184,6 +192,93 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
       }
     } finally {
       setState(() => _analyzing = false);
+    }
+  }
+
+  void _showShareSheet(BuildContext context, Note note) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.cardDark,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text('分享笔记',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.copy_outlined, color: AppTheme.accent),
+              title: const Text('复制摘要'),
+              onTap: () {
+                final text = note.summary?.isNotEmpty == true
+                    ? note.summary!
+                    : note.content;
+                Clipboard.setData(ClipboardData(text: text));
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('已复制到剪贴板')),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.share_outlined, color: AppTheme.accent),
+              title: const Text('分享为文本'),
+              onTap: () {
+                final buf = StringBuffer();
+                final fmt = DateFormat('yyyy-MM-dd HH:mm');
+                buf.writeln('[${_noteTypeLabel(note.type)}] ${fmt.format(note.createdAt)}');
+                buf.writeln();
+                if (note.summary?.isNotEmpty == true) {
+                  buf.writeln(note.summary!);
+                } else {
+                  buf.writeln(note.content);
+                }
+                if (note.tags?.isNotEmpty == true) {
+                  buf.writeln();
+                  final tags = note.tags!
+                      .split(',')
+                      .where((t) => t.isNotEmpty)
+                      .map((t) => '#$t')
+                      .join(' ');
+                  buf.writeln(tags);
+                }
+                Navigator.pop(context);
+                Share.share(buf.toString());
+              },
+            ),
+            if (note.audioPath != null)
+              ListTile(
+                leading: const Icon(Icons.audio_file_outlined, color: AppTheme.accent),
+                title: const Text('分享原始录音'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Share.shareXFiles([XFile(note.audioPath!)]);
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _noteTypeLabel(String type) {
+    switch (type) {
+      case 'voice': return '语音';
+      case 'meeting': return '会议';
+      case 'conversation': return '对话';
+      default: return '文字';
     }
   }
 }

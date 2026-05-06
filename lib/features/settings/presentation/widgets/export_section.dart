@@ -19,28 +19,31 @@ class ExportSection extends ConsumerWidget {
         const _SectionTitle(title: '📤 数据导出'),
         const SizedBox(height: 12),
         const Text(
-          '将所有笔记导出为 TXT 或 JSON 文件，可分享或备份',
+          '将所有笔记导出为 TXT、JSON 或 Markdown 文件，可分享或备份',
           style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
         ),
         const SizedBox(height: 14),
-        Row(
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
           children: [
-            Expanded(
-              child: _ExportButton(
-                icon: Icons.text_snippet_outlined,
-                label: '导出 TXT',
-                color: AppTheme.accent,
-                onTap: () => _export(context, ref, format: 'txt'),
-              ),
+            _ExportButton(
+              icon: Icons.text_snippet_outlined,
+              label: '导出 TXT',
+              color: AppTheme.accent,
+              onTap: () => _export(context, ref, format: 'txt'),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _ExportButton(
-                icon: Icons.data_object,
-                label: '导出 JSON',
-                color: AppTheme.success,
-                onTap: () => _export(context, ref, format: 'json'),
-              ),
+            _ExportButton(
+              icon: Icons.data_object,
+              label: '导出 JSON',
+              color: AppTheme.success,
+              onTap: () => _export(context, ref, format: 'json'),
+            ),
+            _ExportButton(
+              icon: Icons.description_outlined,
+              label: '导出 MD',
+              color: const Color(0xFF7C4DFF),
+              onTap: () => _export(context, ref, format: 'md'),
             ),
           ],
         ),
@@ -94,7 +97,7 @@ class ExportSection extends ConsumerWidget {
         buf.writeln();
       }
       await file.writeAsString(buf.toString(), encoding: utf8);
-    } else {
+    } else if (format == 'json') {
       final list = notes.map((n) => {
         'id': n.id,
         'type': n.type,
@@ -113,6 +116,57 @@ class ExportSection extends ConsumerWidget {
         const JsonEncoder.withIndent('  ').convert(list),
         encoding: utf8,
       );
+    } else if (format == 'md') {
+      final buf = StringBuffer();
+      buf.writeln('# 闪记导出');
+      buf.writeln();
+      buf.writeln('> 导出时间：${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}  ');
+      buf.writeln('> 共 ${notes.length} 条记录');
+      buf.writeln();
+      for (final note in notes) {
+        final timeStr = DateFormat('yyyy-MM-dd HH:mm').format(note.createdAt);
+        buf.writeln('## [${_typeLabel(note.type)}] $timeStr');
+        buf.writeln();
+        if (note.tags?.isNotEmpty == true) {
+          final tagList = note.tags!
+              .split(',')
+              .where((t) => t.isNotEmpty)
+              .map((t) => '#$t')
+              .join(' ');
+          buf.writeln('> 标签：$tagList');
+          buf.writeln();
+        }
+        final content = note.transcript?.isNotEmpty == true
+            ? note.transcript!
+            : note.content;
+        buf.writeln(content);
+        buf.writeln();
+        if (note.summary?.isNotEmpty == true) {
+          final todoLines = note.summary!
+              .split('\n')
+              .where((l) {
+                final t = l.trim();
+                return t.startsWith('- [ ]') || t.startsWith('* [ ]');
+              })
+              .toList();
+
+          buf.writeln('### AI 摘要');
+          buf.writeln();
+          buf.writeln(note.summary!);
+          buf.writeln();
+          if (todoLines.isNotEmpty) {
+            buf.writeln('### 待办');
+            buf.writeln();
+            for (final line in todoLines) {
+              buf.writeln(line.trim());
+            }
+            buf.writeln();
+          }
+        }
+        buf.writeln('---');
+        buf.writeln();
+      }
+      await file.writeAsString(buf.toString(), encoding: utf8);
     }
 
     if (context.mounted) {
@@ -162,6 +216,7 @@ class _ExportButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        width: 96,
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
